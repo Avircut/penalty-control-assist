@@ -85,7 +85,7 @@
     font-size: 12px;
     background: #eee;
     transition: .3s all ease-in-out;
-    max-width: 200px;
+    max-width: 217px;
     width: 100%;
 }
 #fileBtn:hover{
@@ -140,7 +140,6 @@ label{
 }
 
 select{
-    max-width: 200px;
     padding: 3px 8px;
     border-radius: 2px;
     border: 1px solid #a7a7a7;
@@ -209,8 +208,8 @@ select{
     gap: 4px;
 }
 
-#matches-in-series{
-    max-width: 200px;
+.text-input{
+    width: 87px;
     padding: 4px 8px;
     border-radius: 2px;
     border: 1px solid #a7a7a7;
@@ -222,4 +221,35 @@ select{
     display: flex;
     gap: 4px;
     align-items: center;
+}
+
+#check-btn{
+    padding: 4px 8px;
+    border-radius: 2px;
+    border: 1px solid #a7a7a7;
+    font-family: 'Montserrat';
+    font-size: 12px;
+    background: #eee;
+    transition: .3s all ease-in-out;
+    width: 100%;
+}
+#check-btn:hover{
+    background: #494949;
+    border: 1px solid #494949;
+    color: white;
+}
+
+.matches-in-series{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+}
+
+.version{
+    position: absolute;
+    color: #818181;
+    font-family: 'Montserrat';
+    bottom: 6px;
+    left: 10px;
+    font-size: 10px;
 }

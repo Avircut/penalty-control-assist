@@ -20,7 +20,7 @@
             const windowsSelect = document.querySelector('#windows');
             const screenSelect = document.querySelector('#screen');
             const matchesInSeriesInput = document.querySelector('#matches-in-series');
-            let logSeriesStart = document.querySelector('#series-start').value;
+            const matchStartInput = document.querySelector('#start-match');
             btns.forEach((button) => button.disabled = true);
             const fileBtn = document.querySelector('#fileBtn');
             const currentState = document.querySelector('.current-state');
@@ -28,6 +28,7 @@
             let matchNumber = null;
             const startBtn = document.querySelector('.start-btn');
             const stopBtn = document.querySelector('.stop-btn');
+            const checkBtn = document.querySelector('#check-btn');
             const setIsLoading = (value) => {
                 isLoading = value;
                 if (isLoading) {
@@ -104,6 +105,7 @@
             }
             if (cfg.matches_in_series) {
                 totalMatches = cfg.matches_in_series;
+                matchesInSeriesInput.value = totalMatches;
             }
 
             windowsSelect.addEventListener('change', async (event) => {
@@ -119,13 +121,18 @@
                 totalMatches = event.target.value;
             })
 
+            matchStartInput.addEventListener('change', async (event) => {
+                eel.set_match_start_number(event.target.value);
+                setMatchNumber(+event.target.value);
+            })
+
             const isRowsIdentical = (oldValue, newValue) => JSON.stringify(oldValue) === JSON.stringify(newValue);
 
             const startSeries = async () => {
                 setIsLoading(true);
                 const isFileCorrect = await eel.check_file_permission()();
-                if(isFileCorrect) {
-                    eel.start_series(logSeriesStart);
+                if (isFileCorrect) {
+                    eel.start_series();
                     setMatchNumber(0)
                     checkIntervalId = startCheck();
                     startBtn.disabled = true;
@@ -212,8 +219,8 @@
             stopBtn.addEventListener('click', () => {
                 stopSeries()
             })
-            document.querySelector('#series-start').addEventListener('change', async (event) => {
-                logSeriesStart = !event.target.value;
+            checkBtn.addEventListener('click', () => {
+                eel.check_cv();
             })
             setIsLoading(false);
         }
@@ -237,9 +244,7 @@
             <div class="file input-wrapper">
                 <label title="В эту таблицу будут в реальном времени подставляться результаты в матче">Файл с
                     таблицей</label>
-                <div class="file-wrapper">
-                    <button id="fileBtn"><span class="file-name">Выбрать файл</span></button>
-                </div>
+                <button id="fileBtn"><span class="file-name">Выбрать файл</span></button>
             </div>
             <div class="window input-wrapper">
                 <label for="windows"
@@ -254,18 +259,19 @@
                     (1920x1080) с vMix</label>
                 <select id="screen">
                 </select>
+                <button id="check-btn">Проверить экран</button>
             </div>
             <div class="series-settings">
                 <div class="matches-in-series input-wrapper">
-                    <label for="matches-in-series">Количество матчей в серии</label>
-                    <input type="number" id="matches-in-series" placeholder="Матчей в серии" value="6"
+                    <label class="start-match__label" for="start-match">С какого матча</label>
+                    <label class="matches-in-series__label" for="matches-in-series">Длина серии</label>
+                    <input class="text-input" type="number" id="start-match" placeholder="Начать с матча" value="1"
+                           title="С какого матча начало серии (для корректного отображения положения команд)"
+                           min="1"/>
+                    <input class="text-input" type="number" id="matches-in-series" placeholder="Матчей в серии"
+                           value="6"
                            title="Сколько матчей будет в серии (Можно поставить любое число, чтобы, к примеру, при начале не с начала серии начать сразу с N матча)"
                            min="1"/>
-                </div>
-                <div class="series-start">
-                    <input type="checkbox" id="series-start"><label for="series-start"
-                                                                    title="Если выбран этот чекбокс - при начале серии не будет в логи сохранена информация о начале серии">Начать
-                    серию не с начала</label>
                 </div>
             </div>
         </div>
@@ -300,6 +306,7 @@
         <button class="start-btn btn">Начать серию матчей</button>
         <button class="stop-btn btn">Окончить серию матчей</button>
     </div>
+    <div class="version">0.1.1</div>
 </div>
 </body>
 </html>

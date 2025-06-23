@@ -11,6 +11,7 @@ class GameController:
     file_path: str
     window: str
     status: str | None
+    start_match_number: int
 
     def __init__(self):
         self.series = {
@@ -20,6 +21,7 @@ class GameController:
         self.file_path = ''
         self.window = win32gui.FindWindow(None, 'vMix 4K - 28.0.0.39 x64 - UPL_STARS.vmix')
         self.status = None
+        self.start_match_number = 1
 
     def clear_series(self):
         self.series = {
@@ -28,7 +30,7 @@ class GameController:
         }
 
     def get_match_number(self):
-        return len(self.series['matches'])
+        return len(self.series['matches']) + self.start_match_number - 1
 
     def get_current_match(self):
         if len(self.series['matches']) < 1: return None
@@ -48,7 +50,7 @@ class GameController:
             match['isGameOver'] = True
             if player_index != -1:
                 series_player = None
-                for i,player in enumerate(self.series['players']):
+                for i, player in enumerate(self.series['players']):
                     if player['team'] == match['players'][player_index]['team']:
                         series_player = player
                         break
@@ -74,7 +76,7 @@ class GameController:
             draw_condition = (len(match['players'][0]['cells']) == len(match['players'][1]['cells'])) and (
                     len(match['players'][0]['cells']) == max_kicks)
             if win_condition or draw_condition:
-                time.sleep(5)
+                time.sleep(10)
                 player_won_index = 0 if first_player_won else 1 if second_player_won else -1
                 self.finish_match(player_won_index)
             return win_condition or draw_condition
@@ -95,7 +97,7 @@ class GameController:
         self.series['matches'].append(new_match)
         self.set_status(f"Старт матча - {new_match['players'][0]['team']}-{new_match['players'][1]['team']}")
 
-    def start_series(self, player_names: list[str],log_series_start:bool):
+    def start_series(self, player_names: list[str]):
         self.series['matches'] = []
         self.series['players'] = []
         if len(player_names) < 2: logger.warning('Серия не получила достаточного количества игроков')
@@ -105,8 +107,9 @@ class GameController:
                 'name': player_names[i].split(' ')[1][1: -1],
                 'score': 0
             })
-        if log_series_start:
+        if self.start_match_number == 1:
             self.set_status(f"Старт серии - {player_names[0]}-{player_names[1]}")
+        else: self.set_status(f"Серия между {player_names[0]} и {player_names[1]} восстановлена с {self.start_match_number} матча.")
 
     def stop_series(self):
         self.finish_match(-1)
@@ -142,6 +145,9 @@ class GameController:
             for i in range(0, len(match['players'])):
                 teams.append(match['players'][i]['team'])
         return teams
+
+    def set_start_match_number(self, number: int):
+        self.start_match_number = number
 
 
 game = GameController()

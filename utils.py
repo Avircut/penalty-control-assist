@@ -1,6 +1,8 @@
 import csv
 
-from cfg_utils import save_config
+import mss
+
+from cfg_utils import save_config, cfg
 from log_settings import logger
 import traceback
 
@@ -98,6 +100,7 @@ def cell_check(color: tuple[int, int, int]):
 
 
 def clear_match_info():
+    print('Данные стерты')
     teams = get_teams()
     data = {'TEAM': teams, 'SCORE': []}
     for i in range(1, 6):
@@ -121,6 +124,17 @@ def get_teams():
     return game.get_current_teams()
 
 
+@eel.expose
+def check_cv():
+    with mss.mss() as sct:
+        monitor = sct.monitors[int(cfg['screen'])]
+        screenshot = sct.grab(monitor)
+        img = np.array(screenshot)
+        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+        cv2.rectangle(img,(cfg['hudCoords'][0]['x'],cfg['hudCoords'][0]['y']),(cfg['hudCoords'][1]['x'],cfg['hudCoords'][1]['y']),(0,255,0),2)
+        cv2.imshow("Экран с ожидаемым местом для игрового HUD",img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 @eel.expose
 def write_to_cell():
     teams = get_teams()
@@ -235,7 +249,11 @@ def set_screen(screen_index):
 
 @eel.expose
 def set_matches_in_series(amount):
+    print(amount)
     save_config({'matches_in_series':amount})
 
+@eel.expose
+def set_match_start_number(number):
+    game.set_start_match_number(int(number))
 
 

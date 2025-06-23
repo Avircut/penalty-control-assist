@@ -46,7 +46,6 @@ def save_config(data):
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump({**cfg,**data}, f, indent=4)
     cfg.update(data)
-    print(cfg)
 
 @eel.expose
 def get_config():
