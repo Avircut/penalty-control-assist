@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PenaltyControlAssist</title>
+    <script type="text/javascript" src="/eel.js"></script>
+    <link href="css/styles.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
+          rel="stylesheet">
+    <script type="text/javascript">
+        window.onload = async function () {
+            let isLoading = false;
+            let rowsState = [];
+            let totalMatches = 6;
+            let filename;
+            let statusState = '';
+            const btns = document.querySelector('.btn-group').querySelectorAll('button');
+            const windowsSelect = document.querySelector('#windows');
+            const screenSelect = document.querySelector('#screen');
+            const matchesInSeriesInput = document.querySelector('#matches-in-series');
+            let logSeriesStart = document.querySelector('#series-start').value;
+            btns.forEach((button) => button.disabled = true);
+            const fileBtn = document.querySelector('#fileBtn');
+            const currentState = document.querySelector('.current-state');
+            let checkIntervalId;
+            let matchNumber = null;
+            const startBtn = document.querySelector('.start-btn');
+            const stopBtn = document.querySelector('.stop-btn');
+            const setIsLoading = (value) => {
+                isLoading = value;
+                if (isLoading) {
+                    document.querySelector('.loader').classList.add('loader_loading');
+                } else {
+                    document.querySelector('.loader').classList.remove('loader_loading');
+                }
+            }
+            setIsLoading(true);
+
+            const setMatchNumber = (number) => {
+                matchNumber = number;
+                if (typeof matchNumber === 'number') {
+                    document.querySelector('.series-counter').innerHTML = `(${matchNumber}/${totalMatches})`;
+                } else {
+                    document.querySelector('.series-counter').innerHTML = ``;
+                }
+            }
+
+            const setFilename = (filePath) => {
+                filename = filePath;
+                if (filePath) {
+                    document.querySelector('.file-name').innerHTML = `${filename}`;
+                    document.querySelector('.file-name').title = filename;
+                } else {
+                    document.querySelector('.file-name').innerHTML = `Выберите файл`;
+                    document.querySelector('.file-name').title = 'Выберите файл';
+                }
+                startBtn.disabled = !filename;
+            }
+
+            const setStatus = (status) => {
+                statusState = status;
+                const statusElement = document.querySelector('.status');
+                if (statusState) {
+                    statusElement.textContent = statusState;
+                } else {
+                    statusElement.textContent = '';
+                }
+            }
+
+            const setScreen = (screenValue) => {
+                screenSelect.value = screenValue;
+            }
+
+            const windows = await eel.get_windows()()
+            const setUpWindowOptions = () => {
+                windows.forEach(window => {
+                    const option = document.createElement('option');
+                    option.value = window[1];
+                    option.textContent = window[0];
+                    windowsSelect.appendChild(option);
+                })
+            }
+            setUpWindowOptions()
+
+            const screens = await eel.get_monitors()()
+            const setUpScreenOptions = () => {
+                screens.forEach(screen => {
+                    const option = document.createElement('option');
+                    option.value = screen.id + 1;
+                    option.textContent = `${screen.name} - ${screen.width}x${screen.height} ${screen.is_primary ? '(Основной)' : ''}`;
+                    screenSelect.appendChild(option);
+                })
+            }
+            setUpScreenOptions()
+
+            const cfg = await eel.get_config()()
+            if (cfg.file_path) {
+                setFilename(cfg.file_path);
+            }
+            if (cfg.screen) {
+                setScreen(cfg.screen);
+            }
+            if (cfg.matches_in_series) {
+                totalMatches = cfg.matches_in_series;
+            }
+
+            windowsSelect.addEventListener('change', async (event) => {
+                await eel.set_window(event.target.value);
+            })
+
+            screenSelect.addEventListener('change', async (event) => {
+                await eel.set_screen(event.target.value);
+            })
+
+            matchesInSeriesInput.addEventListener('change', async (event) => {
+                eel.set_matches_in_series(+event.target.value);
+                totalMatches = event.target.value;
+            })
+
+            const isRowsIdentical = (oldValue, newValue) => JSON.stringify(oldValue) === JSON.stringify(newValue);
+
+            const startSeries = async () => {
+                setIsLoading(true);
+                const isFileCorrect = await eel.check_file_permission()();
+                if(isFileCorrect) {
+                    eel.start_series(logSeriesStart);
+                    setMatchNumber(0)
+                    checkIntervalId = startCheck();
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                }
+                setIsLoading(false);
+            }
+
+            const stopSeries = () => {
+                setMatchNumber(null)
+                eel.finish_series();
+                clearInterval(checkIntervalId);
+                clearState();
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+
+            const clearState = () => {
+                document.querySelectorAll('.cell').forEach(cell => {
+                    cell.classList.remove('success');
+                    cell.classList.remove('fail');
+                })
+                document.querySelectorAll('.team').forEach(team => {
+                    team.innerHTML = '';
+                })
+                document.querySelector('.series-counter').innerHTML = '';
+                currentState.classList.remove('current-state_visible');
+            }
+
+            const startCheck = () => {
+                return setInterval(async () => {
+                    const [match, statusExternal, endSeries, teams, ...rows] = await eel.get_state()();
+                    if (statusExternal !== statusState) {
+                        setStatus(statusExternal);
+                    }
+                    if (isRowsIdentical(rowsState, rows)) {
+                        return;
+                    }
+                    clearState();
+                    setMatchNumber(match);
+                    const teamElements = document.querySelectorAll('.team');
+                    if (teams?.length) {
+                        teams.forEach((team, i) => {
+                            teamElements[i].innerHTML = team;
+                        })
+                    } else {
+                        teamElements.forEach(team => {
+                            team.innerHTML = '';
+                        })
+                    }
+                    const rowElements = document.querySelectorAll('.row');
+                    rows.forEach((row, i) => {
+                        const rowElement = rowElements[i];
+                        const cells = rowElement.querySelectorAll('.cell');
+                        row.forEach((cell, j) => {
+                            const cellElement = cells[j];
+                            if (cell === '+') {
+                                cellElement.classList.add('success');
+                            }
+                            if (cell === '-') {
+                                cellElement.classList.remove('success');
+                                cellElement.classList.add('fail');
+                            }
+                        })
+                    })
+                    currentState.classList.add('current-state_visible');
+                    rowsState = rows;
+                    if (endSeries) {
+                        stopBtn.disabled = true;
+                        startBtn.disabled = false;
+                        clearState();
+                    }
+                }, 500)
+            }
+
+
+            fileBtn.addEventListener('click', async () => {
+                setFilename(await eel.ask_file()())
+            });
+
+            startBtn.addEventListener('click', () => {
+                startSeries();
+            })
+            stopBtn.addEventListener('click', () => {
+                stopSeries()
+            })
+            document.querySelector('#series-start').addEventListener('change', async (event) => {
+                logSeriesStart = !event.target.value;
+            })
+            setIsLoading(false);
+        }
+    </script>
+</head>
+<body>
+<div class="wrapper">
+    <div class="loader">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 150" width="150" height="100">
+            <path fill="none" stroke="#FF0747" stroke-width="15" stroke-linecap="round" stroke-dasharray="300 385"
+                  stroke-dashoffset="0"
+                  d="M275 75c0 31-27 50-50 50-58 0-92-100-150-100-28 0-50 22-50 50s23 50 50 50c58 0 92-100 150-100 24 0 50 19 50 50Z">
+                <animate attributeName="stroke-dashoffset" calcMode="spline" dur="2" values="685;-685"
+                         keySplines="0 0 1 1" repeatCount="indefinite"></animate>
+            </path>
+        </svg>
+    </div>
+    <div class="settings-block">
+        <h4 class="settings-header">Настройки</h4>
+        <div class="settings-inputs">
+            <div class="file input-wrapper">
+                <label title="В эту таблицу будут в реальном времени подставляться результаты в матче">Файл с
+                    таблицей</label>
+                <div class="file-wrapper">
+                    <button id="fileBtn"><span class="file-name">Выбрать файл</span></button>
+                </div>
+            </div>
+            <div class="window input-wrapper">
+                <label for="windows"
+                       title="В этом приложении будет после каждого удара нажиматься 'Q' для добавления таймера">Окно с
+                    vMix</label>
+                <select id="windows">
+                </select>
+            </div>
+            <div class="screen input-wrapper">
+                <label for="screen"
+                       title="На данный момент программа корректно работает только с мониторами с разрешением 1920х1080. Здесь нужно выбрать тот монитор, за которым программа будет следить. Окно должно быть открыто во весь экран.">Монитор
+                    (1920x1080) с vMix</label>
+                <select id="screen">
+                </select>
+            </div>
+            <div class="series-settings">
+                <div class="matches-in-series input-wrapper">
+                    <label for="matches-in-series">Количество матчей в серии</label>
+                    <input type="number" id="matches-in-series" placeholder="Матчей в серии" value="6"
+                           title="Сколько матчей будет в серии (Можно поставить любое число, чтобы, к примеру, при начале не с начала серии начать сразу с N матча)"
+                           min="1"/>
+                </div>
+                <div class="series-start">
+                    <input type="checkbox" id="series-start"><label for="series-start"
+                                                                    title="Если выбран этот чекбокс - при начале серии не будет в логи сохранена информация о начале серии">Начать
+                    серию не с начала</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="current-state">
+        <h4 class="state-header">Текущий матч <span class="series-counter"></span></h4>
+        <div class="match-wrapper">
+            <div class="teams">
+                <div class="team"></div>
+                <div class="team"></div>
+            </div>
+            <div class="cells">
+                <div class="row">
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                </div>
+                <div class="row">
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                    <div class="cell"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="status"></div>
+    <div class="btn-group">
+        <button class="start-btn btn">Начать серию матчей</button>
+        <button class="stop-btn btn">Окончить серию матчей</button>
+    </div>
+</div>
+</body>
+</html>
