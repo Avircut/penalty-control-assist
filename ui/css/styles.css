@@ -14,6 +14,7 @@
 
 
 .current-state{
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -54,8 +55,17 @@
     background: transparent;
     transition: .15s all ease-in-out;
 }
+.cell.clickable{
+    width: 14px;
+    height: 14px;
+    opacity: .9;
+    cursor: pointer;
+}
 .cell:hover{
     opacity: .7;
+}
+.cell.clickable:hover{
+    opacity: 1;
 }
 
 .cell.success{
@@ -251,5 +261,58 @@ select{
     font-family: 'Montserrat';
     bottom: 6px;
     left: 10px;
+    font-size: 10px;
+}
+
+.toggle {
+    display: inline-block;
+    overflow: hidden;
+}
+.toggle-item {
+    float: left;
+    display: inline-block;
+}
+.toggle-item input[type=radio] {
+    display: none;
+}
+.toggle-item label {
+    display: inline-block;
+    padding: 0px 9px;
+    line-height: 24px;
+    color: #737373;
+    border: 1px solid #c5c5c5;
+    border-right: none;
+    cursor: pointer;
+    user-select: none;
+    font-size: 10px;
+}
+
+.toggle .item-1 label {
+    border-radius: 4px 0 0 4px;
+}
+.toggle .item-2 label {
+    border-radius: 0 4px 4px 0;
+    border-right: 1px solid #c5c5c5;
+}
+
+/* Checked */
+.toggle .item-1 input[type=radio]:checked + label {
+    background: #ffc5c5;
+}
+.toggle .item-2 input[type=radio]:checked + label {
+    background: #bbffbb;
+}
+
+.mode-toggle{
+    position: absolute;
+    right: 0;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.mode-toggle__label{
     font-size: 10px;
 }

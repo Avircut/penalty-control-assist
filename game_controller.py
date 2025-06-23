@@ -42,7 +42,7 @@ class GameController:
             for i in range(0, len(match['players'])):
                 match['players'][i]['score'] = 0
                 match['players'][i]['cells'] = []
-            match.isGameOver = False
+            match['isGameOver'] = False
 
     def finish_match(self, player_index: int):
         match = self.get_current_match()
@@ -64,6 +64,17 @@ class GameController:
         if match:
             match['players'][player]['score'] = score
             match['players'][player]['cells'] = cells
+
+    def commit_result(self,result:CellState,player_index:int):
+        match = self.get_current_match()
+        if not match: return
+        if result == CellState.SUCCESS:
+            match['players'][player_index]['score'] += 1
+        match['players'][player_index]['cells'].append(result)
+        team = game.get_current_teams()[player_index]
+        result = 'Успешно' if result == CellState.SUCCESS else 'Промах'
+        game.set_status(
+            f"Команда {team} завершила удар. Результат: {result}. Счет: {match['players'][0]['score']}:{match['players'][1]['score']}.")
 
     def check_game_end(self, max_kicks: int = 5):
         match = self.get_current_match()

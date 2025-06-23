@@ -34,7 +34,7 @@ def thresholding(img, value_1, value_2):
     return binary_img
 
 
-def convert_contours_to_bboxes(contours, min_height, min_width,max_height,max_width):
+def convert_contours_to_bboxes(contours, min_height, min_width, max_height, max_width):
     """
     convert contours to bboxes, also remove all small bounding boxes
     Parameters:
@@ -92,31 +92,42 @@ def cell_check(color: tuple[int, int, int]):
     """
     # 150 100 100
     # 100 120 100
-    if color[2] > 210 and color[1] < 80 and color[0] < 75:
+    if color[2] > 210 and color[1] < 83 and color[0] < 75:
         return CellState.FAIL
     elif color[2] < 30 and color[1] > 120 and color[0] < 75:
         return CellState.SUCCESS
     return None
 
 
-def clear_match_info():
-    print('Данные стерты')
+def clear_table():
     teams = get_teams()
-    data = {'TEAM': teams, 'SCORE': []}
+    # Отдельно храним teams и данные пенальти, чтобы не перебивать score столбец(чтобы не удалять формулу оттуда и в крайнем случае можно было вручную заполнять таблицу)
+    team_data = {'TEAM': teams}
+    data = {}
     for i in range(1, 6):
         data[f"PEN{i}"] = ['', '']
+    team_df = pd.DataFrame(team_data)
     df = pd.DataFrame.from_dict(data, orient='index')
     df = df.transpose()
     with pd.ExcelWriter(game.file_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
         sheet_name = 'STATS'
-        df.to_excel(writer, sheet_name=sheet_name, startrow=0, index=False, startcol=1)
+        team_df.to_excel(writer, sheet_name=sheet_name, startrow=0, index=False, startcol=1)
+        df.to_excel(writer, sheet_name=sheet_name, startrow=0, index=False, startcol=3)
+
+
+def calculate_score(cells: list[CellState]):
+    cur_score = 0
+    for cell in cells:
+        if cell == CellState.SUCCESS: cur_score += 1
+    return cur_score
 
 
 def extract_teams():
     file = pd.read_excel(game.file_path, usecols='A', skiprows=1, nrows=2, header=None)
     file_content = file.to_numpy()
     teams = file_content.flatten()
-    if len(teams) <2: logger.debug(f"Из таблицы получено недостаточное количество элементов: {len(teams)}. {' '.join([x for x in teams])}")
+    if len(teams) < 2: logger.debug(
+        f"Из таблицы получено недостаточное количество элементов: {len(teams)}. {' '.join([x for x in teams])}")
     return teams
 
 
@@ -131,30 +142,37 @@ def check_cv():
         screenshot = sct.grab(monitor)
         img = np.array(screenshot)
         img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-        cv2.rectangle(img,(cfg['hudCoords'][0]['x'],cfg['hudCoords'][0]['y']),(cfg['hudCoords'][1]['x'],cfg['hudCoords'][1]['y']),(0,255,0),2)
-        cv2.imshow("Экран с ожидаемым местом для игрового HUD",img)
+        cv2.rectangle(img, (cfg['hudCoords'][0]['x'], cfg['hudCoords'][0]['y']),
+                      (cfg['hudCoords'][1]['x'], cfg['hudCoords'][1]['y']), (0, 255, 0), 2)
+        cv2.imshow("Экран с ожидаемым местом для игрового HUD", img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+
+
 @eel.expose
 def write_to_cell():
     teams = get_teams()
     match = game.get_current_match()
     if match:
-        data = {'TEAM': teams, 'SCORE': [match['players'][0]['score'], match['players'][1]['score']]}
+        team_data = {'TEAM': teams}
+        data = {}
         for i in range(0, len(match['players'][0]['cells'])):
-            data[f"PEN{i + 1}"] = [match['players'][0]['cells'][i].value] if len(match['players'][1]['cells']) < i + 1 else [
+            data[f"PEN{i + 1}"] = [match['players'][0]['cells'][i].value] if len(
+                match['players'][1]['cells']) < i + 1 else [
                 match['players'][0]['cells'][i].value, match['players'][1]['cells'][i].value]
         try:
+            team_df = pd.DataFrame(team_data)
             df = pd.DataFrame.from_dict(data, orient='index')
             df = df.transpose()
-            with pd.ExcelWriter(game.file_path, engine='openpyxl',mode='a', if_sheet_exists='overlay') as writer:
+            with pd.ExcelWriter(game.file_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
                 sheet_name = 'STATS'
-                df.to_excel(writer, sheet_name=sheet_name, startrow=0, index=False, startcol=1)
+                team_df.to_excel(writer, sheet_name=sheet_name, startrow=0, index=False, startcol=1)
+                df.to_excel(writer, sheet_name=sheet_name, startrow=0, index=False, startcol=3)
         except Exception as e:
             logger.error(traceback.format_exc())
-            messagebox.showerror('Произошла ошибка при записи файла','Не удалось записать в файл результаты удара. Проверьте, что не блокируете файл другими программами')
+            messagebox.showerror('Произошла ошибка при записи файла',
+                                 'Не удалось записать в файл результаты удара. Проверьте, что не блокируете файл другими программами')
             pass
-
 
 
 def check_table_structure(file_path):
@@ -166,14 +184,17 @@ def check_table_structure(file_path):
         if not is_struct_correct:
             messagebox.showerror("Произошла ошибка",
                                  "Некорректная структура таблицы, проверьте чтобы в первой строке в столбцах B:H были корректные заголовки от 'TEAM' до 'PEN5'")
-            logger.error('Не удалось загрузить таблицу, так как структура таблицы нарушена. Проверьте заголовки в столбцах B:H')
+            logger.error(
+                'Не удалось загрузить таблицу, так как структура таблицы нарушена. Проверьте заголовки в столбцах B:H')
         else:
             return is_struct_correct
     except FileNotFoundError:
-        messagebox.showerror("Произошла ошибка", "Файл не найден. Возможно выбран ярлык несуществующего файла. Попробуйте выбрать другой файл")
+        messagebox.showerror("Произошла ошибка",
+                             "Файл не найден. Возможно выбран ярлык несуществующего файла. Попробуйте выбрать другой файл")
         logger.exception('FileNotFoundError')
         pass
     return False
+
 
 @eel.expose
 def check_file_permission():
@@ -181,7 +202,8 @@ def check_file_permission():
         with open(game.file_path, 'a') as f:
             return True
     except IOError as e:
-        messagebox.showerror("Произошла ошибка при открытии файла.", f"Пожалуйста, убедитесь, что вы закрыли файл с таблицей в Excel. Ошибка: {e}")
+        messagebox.showerror("Произошла ошибка при открытии файла.",
+                             f"Пожалуйста, убедитесь, что вы закрыли файл с таблицей в Excel. Ошибка: {e}")
         return False
     except Exception as e:
         logger.exception(f"Неизвестная ошибка при проверке файла на доступные права")
@@ -223,6 +245,7 @@ def get_windows():
     win32gui.EnumWindows(callback, None)
     return windows
 
+
 @eel.expose
 def get_monitors():
     monitors = []
@@ -232,7 +255,7 @@ def get_monitors():
             'id': i,
             'width': m.width,
             'height': m.height,
-            'name': f"Монитор {i+1}",
+            'name': f"Монитор {i + 1}",
             'is_primary': m.is_primary
         })
 
@@ -243,17 +266,18 @@ def get_monitors():
 def set_window(hwnd: str):
     game.set_window(hwnd)
 
+
 @eel.expose
 def set_screen(screen_index):
-    save_config({'screen':screen_index})
+    save_config({'screen': screen_index})
+
 
 @eel.expose
 def set_matches_in_series(amount):
     print(amount)
-    save_config({'matches_in_series':amount})
+    save_config({'matches_in_series': amount})
+
 
 @eel.expose
 def set_match_start_number(number):
     game.set_start_match_number(int(number))
-
-

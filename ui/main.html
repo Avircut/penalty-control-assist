@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
           rel="stylesheet">
     <script type="text/javascript">
+        CELL_MAPPING = new Map([['+', '-'], ['-', '0'], ['0', '+']])
         window.onload = async function () {
             let isLoading = false;
             let rowsState = [];
@@ -32,9 +33,9 @@
             const setIsLoading = (value) => {
                 isLoading = value;
                 if (isLoading) {
-                    document.querySelector('.loader').classList.add('loader_loading');
+                    document.querySelector('.loader')?.classList.add('loader_loading');
                 } else {
-                    document.querySelector('.loader').classList.remove('loader_loading');
+                    document.querySelector('.loader')?.classList.remove('loader_loading');
                 }
             }
             setIsLoading(true);
@@ -94,6 +95,61 @@
                     screenSelect.appendChild(option);
                 })
             }
+            const setCells = (rows = []) => {
+                rowsState = rows;
+                const rowElements = document.querySelectorAll('.row');
+
+                document.querySelectorAll('.cell').forEach(cell => {
+                    cell.classList.remove('success')
+                    cell.classList.remove('fail');
+                });
+
+                rows.forEach((row, i) => {
+                    const rowElement = rowElements[i];
+                    const cells = rowElement.querySelectorAll('.cell');
+                    row.forEach((cell, j) => {
+                        const cellElement = cells[j];
+                        if (cell === '+') {
+                            cellElement.classList.add('success');
+                        }
+                        if (cell === '-') {
+                            cellElement.classList.remove('success');
+                            cellElement.classList.add('fail');
+                        }
+                    })
+                })
+            }
+
+            const turnEditMode = (mode) => {
+                if (mode === 'on'){
+                    console.log('created interval')
+                    checkIntervalId = startCheck()
+                }
+                if(mode === 'off'){
+                    console.log('cleared interval')
+                    clearInterval(checkIntervalId);
+                }
+                const rowElements = document.querySelectorAll('.row');
+                rowElements.forEach((row, i) => {
+                    row.querySelectorAll('.cell').forEach((cell, j) => {
+                        const editCell = () => {
+                            rowsState[i][j] = CELL_MAPPING.get(rowsState[i][j]) ?? '+';
+                            console.log('clicked')
+                            setCells(rowsState);
+                        }
+                        if (mode === 'off') {
+                            cell.classList.add('clickable');
+                            cell.addEventListener('click', editCell);
+                        }
+                        if (mode === 'on') {
+                            cell.classList.remove('clickable');
+                            const cellClone = cell.cloneNode(true);
+                            row.replaceChild(cellClone,cell);
+                        }
+
+                    })
+                })
+            }
             setUpScreenOptions()
 
             const cfg = await eel.get_config()()
@@ -108,20 +164,20 @@
                 matchesInSeriesInput.value = totalMatches;
             }
 
-            windowsSelect.addEventListener('change', async (event) => {
+            windowsSelect?.addEventListener('change', async (event) => {
                 await eel.set_window(event.target.value);
             })
 
-            screenSelect.addEventListener('change', async (event) => {
+            screenSelect?.addEventListener('change', async (event) => {
                 await eel.set_screen(event.target.value);
             })
 
-            matchesInSeriesInput.addEventListener('change', async (event) => {
+            matchesInSeriesInput?.addEventListener('change', async (event) => {
                 eel.set_matches_in_series(+event.target.value);
                 totalMatches = event.target.value;
             })
 
-            matchStartInput.addEventListener('change', async (event) => {
+            matchStartInput?.addEventListener('change', async (event) => {
                 eel.set_match_start_number(event.target.value);
                 setMatchNumber(+event.target.value);
             })
@@ -162,6 +218,7 @@
                 currentState.classList.remove('current-state_visible');
             }
 
+
             const startCheck = () => {
                 return setInterval(async () => {
                     const [match, statusExternal, endSeries, teams, ...rows] = await eel.get_state()();
@@ -183,23 +240,8 @@
                             team.innerHTML = '';
                         })
                     }
-                    const rowElements = document.querySelectorAll('.row');
-                    rows.forEach((row, i) => {
-                        const rowElement = rowElements[i];
-                        const cells = rowElement.querySelectorAll('.cell');
-                        row.forEach((cell, j) => {
-                            const cellElement = cells[j];
-                            if (cell === '+') {
-                                cellElement.classList.add('success');
-                            }
-                            if (cell === '-') {
-                                cellElement.classList.remove('success');
-                                cellElement.classList.add('fail');
-                            }
-                        })
-                    })
+                    setCells(rows);
                     currentState.classList.add('current-state_visible');
-                    rowsState = rows;
                     if (endSeries) {
                         stopBtn.disabled = true;
                         startBtn.disabled = false;
@@ -208,18 +250,26 @@
                 }, 500)
             }
 
-
-            fileBtn.addEventListener('click', async () => {
+            document.querySelectorAll('input[name=mode]').forEach(item => {
+                item.addEventListener('change', async (event) => {
+                    if(event.target.checked) {
+                        turnEditMode(event.target.value);
+                        const filteredRows = rowsState.map((row) => row.filter((cell) => cell !== '0'))
+                        await eel.turn_mode(event.target.value,filteredRows);
+                    }
+                })
+            })
+            fileBtn?.addEventListener('click', async () => {
                 setFilename(await eel.ask_file()())
             });
 
-            startBtn.addEventListener('click', () => {
+            startBtn?.addEventListener('click', () => {
                 startSeries();
             })
-            stopBtn.addEventListener('click', () => {
+            stopBtn?.addEventListener('click', () => {
                 stopSeries()
             })
-            checkBtn.addEventListener('click', () => {
+            checkBtn?.addEventListener('click', () => {
                 eel.check_cv();
             })
             setIsLoading(false);
@@ -278,6 +328,20 @@
     </div>
     <div class="current-state">
         <h4 class="state-header">Текущий матч <span class="series-counter"></span></h4>
+        <div class="mode-toggle">
+            <div class="mode-toggle__label">Авто</div>
+            <div class="toggle">
+                <div class="toggle-item item-1">
+                    <input id="fid-1" type="radio" name="mode" value="off">
+                    <label for="fid-1">OFF</label>
+                </div>
+                <div class="toggle-item item-2">
+                    <input id="fid-2" type="radio" name="mode" value="on" checked>
+                    <label for="fid-2">ON</label>
+                </div>
+            </div>
+        </div>
+
         <div class="match-wrapper">
             <div class="teams">
                 <div class="team"></div>

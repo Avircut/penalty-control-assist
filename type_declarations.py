@@ -38,3 +38,7 @@ Configuration: TypeAlias = {
     'matches_in_series': int,
     'file_path': str
 }
+
+class CVMode(Enum):
+    ON = 'on'
+    OFF = 'off'
