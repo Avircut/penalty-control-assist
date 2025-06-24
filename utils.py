@@ -131,6 +131,12 @@ def extract_teams():
     return teams
 
 
+@eel.expose
+def show_message(text):
+    if text:
+        messagebox.showerror("Произошла ошибка", text)
+
+
 def get_teams():
     return game.get_current_teams()
 

@@ -30,6 +30,10 @@
             const startBtn = document.querySelector('.start-btn');
             const stopBtn = document.querySelector('.stop-btn');
             const checkBtn = document.querySelector('#check-btn');
+            const setMode = (mode) => {
+                const radios = document.querySelectorAll('input[name="mode"]');
+                radios.forEach(radio => radio.checked = radio.value === mode);
+            }
             const setIsLoading = (value) => {
                 isLoading = value;
                 if (isLoading) {
@@ -120,13 +124,15 @@
                 })
             }
 
-            const turnEditMode = (mode) => {
+            const turnEditMode = async (mode) => {
                 if (mode === 'on'){
-                    console.log('created interval')
+                    if(rowsState[0].length < rowsState[1].length) {
+                        setMode('off')
+                        return eel.show_message("Некорректные данные. У второй команды не может быть больше ударов, чем у первой")
+                    }
                     checkIntervalId = startCheck()
                 }
                 if(mode === 'off'){
-                    console.log('cleared interval')
                     clearInterval(checkIntervalId);
                 }
                 const rowElements = document.querySelectorAll('.row');
@@ -134,7 +140,6 @@
                     row.querySelectorAll('.cell').forEach((cell, j) => {
                         const editCell = () => {
                             rowsState[i][j] = CELL_MAPPING.get(rowsState[i][j]) ?? '+';
-                            console.log('clicked')
                             setCells(rowsState);
                         }
                         if (mode === 'off') {
@@ -149,6 +154,8 @@
 
                     })
                 })
+                const filteredRows = rowsState.map((row) => row.filter((cell) => cell !== '0'))
+                await eel.turn_mode(event.target.value,filteredRows);
             }
             setUpScreenOptions()
 
@@ -254,8 +261,6 @@
                 item.addEventListener('change', async (event) => {
                     if(event.target.checked) {
                         turnEditMode(event.target.value);
-                        const filteredRows = rowsState.map((row) => row.filter((cell) => cell !== '0'))
-                        await eel.turn_mode(event.target.value,filteredRows);
                     }
                 })
             })
@@ -370,7 +375,7 @@
         <button class="start-btn btn">Начать серию матчей</button>
         <button class="stop-btn btn">Окончить серию матчей</button>
     </div>
-    <div class="version">0.1.1</div>
+    <div class="version">0.1.2</div>
 </div>
 </body>
 </html>

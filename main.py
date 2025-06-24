@@ -1,3 +1,5 @@
+from tkinter import messagebox
+
 import cv2
 import mss
 import win32api
@@ -90,6 +92,7 @@ def series_control():
     while not stop_capture_event.is_set():
         while game.get_match_number() < cfg['matches_in_series'] and game.series_in_progress():
             start_match()
+            time.sleep(10)
         stop_capture_event.set()
     game.finish_series()
     log_cell_colors()
@@ -150,8 +153,9 @@ def check_screen(image):
     if kicks_made_in_turn > 0:
         write_to_cell()
         logger.debug(f"Первый игрок: {first_player_cells}. Второй игрок: {second_player_cells}. Количество ударов за ход: {kicks_made_in_turn}. Количество ударов в памяти:{kicks_stored}. Количество ударов на экране:{kicks_detected}. Отправлена пауза - {bool(kicks_made_in_turn == 1)}")
+        is_match_over = game.check_game_end(cfg['max_kicks'])
         # Отправляем в vMix команду на таймер только если игра не завершена и не восстановлена (т.е. когда разница с прошлой картинкой - 1 удар, а не сессия восстановлена программно)
-        if not game.check_game_end(cfg['max_kicks']) and game.window and kicks_made_in_turn == 1:
+        if not is_match_over and game.window and kicks_made_in_turn == 1:
             time.sleep(2)
             win32api.SendMessage(game.window, win32con.WM_KEYDOWN, ord('Q'), 0)
             win32api.SendMessage(game.window, win32con.WM_KEYUP, ord('Q'), 0)

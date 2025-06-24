@@ -87,7 +87,6 @@ class GameController:
             draw_condition = (len(match['players'][0]['cells']) == len(match['players'][1]['cells'])) and (
                     len(match['players'][0]['cells']) == max_kicks)
             if win_condition or draw_condition:
-                time.sleep(10)
                 player_won_index = 0 if first_player_won else 1 if second_player_won else -1
                 self.finish_match(player_won_index)
             return win_condition or draw_condition
