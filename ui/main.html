@@ -11,7 +11,9 @@
           rel="stylesheet">
     <script type="text/javascript">
         CELL_MAPPING = new Map([['+', '-'], ['-', '0'], ['0', '+']])
+        const VERSION = '0.1.3'
         window.onload = async function () {
+            document.querySelector('.version').innerHTML = VERSION;
             let isLoading = false;
             let rowsState = [];
             let totalMatches = 6;
@@ -375,7 +377,7 @@
         <button class="start-btn btn">Начать серию матчей</button>
         <button class="stop-btn btn">Окончить серию матчей</button>
     </div>
-    <div class="version">0.1.2</div>
+    <div class="version"></div>
 </div>
 </body>
 </html>

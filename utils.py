@@ -92,9 +92,9 @@ def cell_check(color: tuple[int, int, int]):
     """
     # 150 100 100
     # 100 120 100
-    if color[2] > 210 and color[1] < 83 and color[0] < 75:
+    if color[2] > 210 and color[1] <= 85 and color[0] < 75:
         return CellState.FAIL
-    elif color[2] < 30 and color[1] > 120 and color[0] < 75:
+    elif color[2] <= 36 and color[1] > 120 and color[0] < 75:
         return CellState.SUCCESS
     return None
 
@@ -178,7 +178,6 @@ def write_to_cell():
             logger.error(traceback.format_exc())
             messagebox.showerror('Произошла ошибка при записи файла',
                                  'Не удалось записать в файл результаты удара. Проверьте, что не блокируете файл другими программами')
-            pass
 
 
 def check_table_structure(file_path):
@@ -198,7 +197,6 @@ def check_table_structure(file_path):
         messagebox.showerror("Произошла ошибка",
                              "Файл не найден. Возможно выбран ярлык несуществующего файла. Попробуйте выбрать другой файл")
         logger.exception('FileNotFoundError')
-        pass
     return False
 
 

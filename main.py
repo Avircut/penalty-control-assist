@@ -55,8 +55,12 @@ def log_cell_colors():
     sorted_success_cells = sorted({item[1]: item for item in recognized_success_cells}.values(),
                                   key=lambda cell: cell[1])
     sorted_fail_cells = sorted({item[0]: item for item in recognized_fail_cells}.values(), key=lambda cell: cell[0])
+    green_not_recognized_cells = sorted(filter(lambda cell:cell[1]>100,not_recognized_cells),key=lambda cell:cell[1])
+    red_not_recognized_cells = sorted(filter(lambda cell:cell[0]>190,not_recognized_cells),key=lambda cell:cell[0])
     logger.debug(
-        f"После окончания сессии следующие цвета были распознаны как несоответствующие: {not_recognized_cells}")
+        f"После окончания сессии следующие цвета были распознаны как несоответствующие(SUCCESS): {green_not_recognized_cells}")
+    logger.debug(
+        f"После окончания сессии следующие цвета были распознаны как несоответствующие(FAIL): {red_not_recognized_cells}")
     logger.debug(
         f"После окончания сессии следующие цвета были распознаны как корректные (SUCCESS): {sorted_success_cells}")
     logger.debug(
