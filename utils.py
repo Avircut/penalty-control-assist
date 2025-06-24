@@ -1,5 +1,3 @@
-import csv
-
 import mss
 
 from cfg_utils import save_config, cfg
@@ -136,7 +134,6 @@ def show_message(text):
     if text:
         messagebox.showerror("Произошла ошибка", text)
 
-
 def get_teams():
     return game.get_current_teams()
 
@@ -153,7 +150,6 @@ def check_cv():
         cv2.imshow("Экран с ожидаемым местом для игрового HUD", img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-
 
 @eel.expose
 def write_to_cell():

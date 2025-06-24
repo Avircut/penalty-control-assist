@@ -11,7 +11,7 @@
           rel="stylesheet">
     <script type="text/javascript">
         CELL_MAPPING = new Map([['+', '-'], ['-', '0'], ['0', '+']])
-        const VERSION = '0.1.3'
+        const VERSION = '0.1.5'
         window.onload = async function () {
             document.querySelector('.version').innerHTML = VERSION;
             let isLoading = false;
@@ -127,14 +127,14 @@
             }
 
             const turnEditMode = async (mode) => {
-                if (mode === 'on'){
-                    if(rowsState[0].length < rowsState[1].length) {
+                if (mode === 'on') {
+                    if (rowsState[0].length < rowsState[1].length) {
                         setMode('off')
                         return eel.show_message("Некорректные данные. У второй команды не может быть больше ударов, чем у первой")
                     }
                     checkIntervalId = startCheck()
                 }
-                if(mode === 'off'){
+                if (mode === 'off') {
                     clearInterval(checkIntervalId);
                 }
                 const rowElements = document.querySelectorAll('.row');
@@ -151,13 +151,13 @@
                         if (mode === 'on') {
                             cell.classList.remove('clickable');
                             const cellClone = cell.cloneNode(true);
-                            row.replaceChild(cellClone,cell);
+                            row.replaceChild(cellClone, cell);
                         }
 
                     })
                 })
                 const filteredRows = rowsState.map((row) => row.filter((cell) => cell !== '0'))
-                await eel.turn_mode(event.target.value,filteredRows);
+                await eel.turn_mode(event.target.value, filteredRows);
             }
             setUpScreenOptions()
 
@@ -208,11 +208,12 @@
 
             const stopSeries = () => {
                 setMatchNumber(null)
-                eel.finish_series();
                 clearInterval(checkIntervalId);
                 clearState();
                 startBtn.disabled = false;
                 stopBtn.disabled = true;
+                eel.stop_series();
+
             }
 
             const clearState = () => {
@@ -228,17 +229,29 @@
             }
 
 
+            setInterval(async () => {
+                const {status} = await eel.get_state()();
+                if (status !== statusState) {
+                    setStatus(status);
+                }
+            }, 1000);
             const startCheck = () => {
                 return setInterval(async () => {
-                    const [match, statusExternal, endSeries, teams, ...rows] = await eel.get_state()();
+                    const {
+                        matchNumber:matchNumberExternal,
+                        status: statusExternal,
+                        endSeriesFlag: endSeries,
+                        teams,
+                        rows
+                    } = await eel.get_state()();
                     if (statusExternal !== statusState) {
                         setStatus(statusExternal);
                     }
-                    if (isRowsIdentical(rowsState, rows)) {
+                    if (isRowsIdentical(rowsState, rows) && rowsState.length === 2 && rowsState[0].length > 0 && rowsState[1].length > 0) {
                         return;
                     }
                     clearState();
-                    setMatchNumber(match);
+                    setMatchNumber(matchNumberExternal);
                     const teamElements = document.querySelectorAll('.team');
                     if (teams?.length) {
                         teams.forEach((team, i) => {
@@ -261,7 +274,7 @@
 
             document.querySelectorAll('input[name=mode]').forEach(item => {
                 item.addEventListener('change', async (event) => {
-                    if(event.target.checked) {
+                    if (event.target.checked) {
                         turnEditMode(event.target.value);
                     }
                 })

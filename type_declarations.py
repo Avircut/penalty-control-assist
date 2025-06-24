@@ -42,3 +42,9 @@ Configuration: TypeAlias = {
 class CVMode(Enum):
     ON = 'on'
     OFF = 'off'
+
+class MatchResult(Enum):
+    SUSPENDED = -2
+    DRAW = -1
+    FIRST_PLAYER = 0
+    SECOND_PLAYER = 1
