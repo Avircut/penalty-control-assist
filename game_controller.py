@@ -11,8 +11,6 @@ file_path, window - это значения из конфига. Путь до �
 status - Сообщение, которое отображается в UI и также записывается в логи
 start_match_number - номер первого матча в серии. Массив матчей всё также начинается 0, это чисто UI смещение, от этого номера зависит положение команд (они каждый матч меняются местами)
 '''
-
-
 class GameController:
     series: SeriesState
     file_path: str
@@ -36,9 +34,11 @@ class GameController:
             'matches': []
         }
 
+    # Получить текущий номер матча
     def get_match_number(self):
         return len(self.series['matches']) + self.start_match_number - 1
 
+    # Получить текущий матч
     def get_current_match(self):
         if len(self.series['matches']) < 1: return None
         return self.series['matches'][-1]
@@ -51,6 +51,7 @@ class GameController:
                 match['players'][i]['cells'] = []
             match['isGameOver'] = False
 
+    # Старт матча - подготовка состояния
     def start_match(self):
         is_odd = self.get_match_number() % 2
         teams = []
@@ -63,20 +64,28 @@ class GameController:
                         {'team': teams[1], 'score': 0, 'cells': []}],
             'isGameOver': False
         }
+        player_names = [self.get_match_player_name(new_match['players'][0]['team']), self.get_match_player_name(new_match['players'][1]['team'])]
         self.series['matches'].append(new_match)
-        self.set_status(f"Старт матча - {new_match['players'][0]['team']}-{new_match['players'][1]['team']}")
+        self.set_status(f"Старт матча - {new_match['players'][0]['team']} ({player_names[0]}) vs {new_match['players'][1]['team']} ({player_names[1]})")
 
+    # Зачисление результата удара
     def commit_result(self, result: CellState, player_index: int):
         match = self.get_current_match()
         if not match: return
         if result == CellState.SUCCESS:
             match['players'][player_index]['score'] += 1
         match['players'][player_index]['cells'].append(result)
-        team = game.get_current_teams()[player_index]
-        result = 'Успешно' if result == CellState.SUCCESS else 'Промах'
+        team = self.get_current_teams()[player_index]
+        player_name = self.get_match_player_name(team)
+        result = 'Забит' if result == CellState.SUCCESS else 'Отбит'
         game.set_status(
-            f"Команда {team} завершила удар. Результат: {result}. Счет: {match['players'][0]['score']}:{match['players'][1]['score']}.")
+            f"Игрок {team}({player_name}) завершил удар. Результат: {result}. Счет: {match['players'][0]['score']}:{match['players'][1]['score']}.")
 
+    # Получение имени игрока по названию команды (берется из серии, т.к. в каждом матче игроки меняются местами)
+    def get_match_player_name(self, team:str):
+        return [player for player in self.series['players'] if player['team'] == team][0]['name']
+
+    # Проверка игры на завершенность
     def check_game_end(self, max_kicks: int = 5):
         match = self.get_current_match()
         if match:
@@ -93,6 +102,7 @@ class GameController:
             return win_condition or draw_condition
         return False
 
+    # Завершение матча и отправка соответствующего сообщения в лог
     def finish_match(self, match_result: MatchResult):
         match = self.get_current_match()
         if match:
@@ -105,14 +115,16 @@ class GameController:
                     if player['team'] == match['players'][player_index]['team']:
                         series_player = player
                         break
-                series_player['score'] += 1
-                winner_message = f"Победитель: {match['players'][player_index]['team']}"
+                if series_player:
+                    series_player['score'] += 1
+                    winner_message = f"Победитель: {match['players'][player_index]['team']} ({series_player['name']})"
             if match_result == MatchResult.DRAW:
                 winner_message = 'Ничья'
             match_suspended_message = " досрочно" if match_result == MatchResult.SUSPENDED else ''
             self.set_status(
-                f"Матч завершен{match_suspended_message}. Результат: {match['players'][0]['team']} {match['players'][0]['score']}:{match['players'][1]['score']} {match['players'][1]['team']} Удары: {len(match['players'][0]['cells'])}:{len(match['players'][1]['cells'])}. {winner_message}")
+                f"Матч завершен{match_suspended_message}. Результат: {match['players'][0]['team']} {match['players'][0]['score']}:{match['players'][1]['score']} {match['players'][1]['team']} Удары: {match['players'][0]['team']} {len(match['players'][0]['cells'])}:{len(match['players'][1]['cells'])} {match['players'][1]['team']}. {winner_message}")
 
+    # Начало новой серии и подготовка состояния
     def start_series(self, player_names: list[str]):
         self.series['matches'] = []
         self.series['players'] = []
@@ -123,25 +135,31 @@ class GameController:
                 'name': player_names[i].split(' ')[1][1: -1],
                 'score': 0
             })
+        names = self.get_player_names()
         if self.start_match_number == 1:
-            self.set_status(f"Старт серии - {player_names[0]}-{player_names[1]}")
+            self.set_status(f"Старт серии - {names[0]} vs {names[1]}")
         else:
             self.set_status(
-                f"Серия между {player_names[0]} и {player_names[1]} восстановлена с {self.start_match_number} матча.")
+                f"Серия между {names[0]} vs {names[1]} восстановлена с {self.start_match_number} матча.")
 
+    # Преждевременная остановка серии
     def stop_series(self):
         self.finish_match(MatchResult.SUSPENDED)
+        names = self.get_player_names()
         self.set_status(
-            f"Серия между {self.series['players'][0]['name']} и {self.series['players'][1]['name']} завершена досрочно на результате: {self.series['players'][0]['score']}:{self.series['players'][1]['score']}.")
+            f"Серия {names[0]} vs {names[1]} завершена досрочно на результате: {self.series['players'][0]['score']}:{self.series['players'][1]['score']}.")
         self.clear_series()
 
+    # Флаг идет ли в данный момент серия
     def series_in_progress(self):
         return len(self.series['players']) > 0
 
+    # Закономерное окончание серии и очистка состояния
     def finish_series(self):
         if self.series_in_progress():
+            names = self.get_player_names()
             self.set_status(
-                f"Серия между {self.series['players'][0]['name']} и {self.series['players'][1]['name']} завершена на результате: {self.series['players'][0]['score']}:{self.series['players'][1]['score']}.")
+                f"Серия {names[0]} vs {names[1]} завершена на результате: {self.series['players'][0]['score']}:{self.series['players'][1]['score']}.")
             self.clear_series()
 
     def set_file(self, file_path: str):
@@ -150,14 +168,15 @@ class GameController:
     def set_window(self, window: str):
         self.window = window
 
+    # Статус отображается на фронте и отправляется в логи. По сути - текущее состояние приложения
     def set_status(self, status: str | None):
-        print(status)
         logger.info(status)
         self.status = status
 
     def set_start_match_number(self, number: int):
         self.start_match_number = number
 
+    # Получение массива команд текущего матча
     def get_current_teams(self):
         match = self.get_current_match()
         teams = []
@@ -166,6 +185,13 @@ class GameController:
             for i in range(0, len(match['players'])):
                 teams.append(match['players'][i]['team'])
         return teams
+
+    # Получение готовых для отправки пар команда - ник по типу 'JUV (NickName)'
+    def get_player_names(self):
+        if len(self.series['players']) <2:
+            return None
+        return list(f"{x['team']} ({x['name']})" for x in self.series['players'])
+
 
 
 game = GameController()

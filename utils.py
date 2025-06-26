@@ -1,10 +1,11 @@
+import traceback
+
 import mss
 import pythoncom
 import win32com.client
 
 from cfg_utils import save_config, cfg
 from log_settings import logger
-import traceback
 
 import cv2
 import eel
@@ -85,6 +86,7 @@ def sort_bboxes(bounding_boxes, method: str):
         return bounding_boxes
 
 
+# Определение типа ячейки идет посредством сравнения одного пикселя внутри с цветовыми диапазонами
 def cell_check(color: tuple[int, int, int]):
     """
     :param color: BGR color representation
@@ -94,20 +96,12 @@ def cell_check(color: tuple[int, int, int]):
     # 100 120 100
     if color[2] > 210 and color[1] <= 90 and color[0] < 80:
         return CellState.FAIL
-    elif color[2] <= 40 and color[1] > 120 and color[0] < 80:
+    elif color[2] <= 55 and color[1] > 120 and color[0] < 110:
         return CellState.SUCCESS
     return None
 
-# Функция нужна, чтобы обновить файл и подготовить его для обработки vMix
-def refresh_table():
-    xlapp = win32com.client.DispatchEx("Excel.Application",pythoncom.CoInitialize())
-    wb = xlapp.Workbooks.Open(game.file_path)
-    wb.RefreshAll()
-    xlapp.CalculateUntilAsyncQueriesDone()
-    wb.Save()
-    # time.sleep(1)
-    xlapp.Quit()
 
+# Очистка таблицы от данных по прошлому матчу (и смена команд местами для следующего матча)
 def clear_table():
     teams = get_teams()
     # Отдельно храним teams и данные пенальти, чтобы не перебивать score столбец(чтобы не удалять формулу оттуда и в крайнем случае можно было вручную заполнять таблицу)
@@ -124,14 +118,14 @@ def clear_table():
         df.to_excel(writer, sheet_name=sheet_name, startrow=0, index=False, startcol=3)
     refresh_table()
 
-
+# По массиву клеток определение результата игрока
 def calculate_score(cells: list[CellState]):
     cur_score = 0
     for cell in cells:
         if cell == CellState.SUCCESS: cur_score += 1
     return cur_score
 
-
+# Получение игроков и их команд из таблицы
 def extract_teams():
     file = pd.read_excel(game.file_path, usecols='A', skiprows=1, nrows=2, header=None)
     file_content = file.to_numpy()
@@ -140,16 +134,17 @@ def extract_teams():
         f"Из таблицы получено недостаточное количество элементов: {len(teams)}. {' '.join([x for x in teams])}")
     return teams
 
-
+# Отправка сообщения об ошибке на фронте
 @eel.expose
 def show_message(text):
     if text:
         messagebox.showerror("Произошла ошибка", text)
 
+# Получение команд текущего матча
 def get_teams():
     return game.get_current_teams()
 
-
+# Запуск проверки выбранного экрана (отображается прямоугольник в области, где программа будет искать худ для отслеживания
 @eel.expose
 def check_cv():
     with mss.mss() as sct:
@@ -163,7 +158,17 @@ def check_cv():
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-@eel.expose
+# Функция нужна, чтобы обновить файл и подготовить его для обработки vMix
+def refresh_table():
+    xlapp = win32com.client.DispatchEx("Excel.Application",pythoncom.CoInitialize())
+    wb = xlapp.Workbooks.Open(game.file_path)
+    wb.RefreshAll()
+    xlapp.CalculateUntilAsyncQueriesDone()
+    wb.Save()
+    # time.sleep(1)
+    xlapp.Quit()
+
+# Рудимент функция - раньше использовался pandas для сохранения результатов в excel. Из-за того, что без рефреша формул vMix не видел корректно данные пришлось уйти от этого варианта в сторону решения на чистом pywin32.
 def write_to_cell():
     teams = get_teams()
     match = game.get_current_match()
@@ -186,9 +191,53 @@ def write_to_cell():
         except Exception as e:
             logger.error(traceback.format_exc())
             messagebox.showerror('Произошла ошибка при записи файла',
-                                 'Не удалось записать в файл результаты удара. Проверьте, что не блокируете файл другими программами')
+                             'Не удалось записать в файл результаты удара. Проверьте, что не блокируете файл другими программами')
 
+# Функция напрямую через win api меняет значения в таблице и обновляет формулы. Используется именно win api (а не pandas), чтобы было всего одно сохранение и данные в vMix не менялись постоянно
+def write_to_excel():
+    match = game.get_current_match()
+    if not match: return
+    player_names = game.get_player_names()
+    teams = game.get_current_teams()
+    # score = f'=IF(D2="+",1,0)+IF(E2="+",1,0) + IF(F2="+",1,0) + IF(G2="+",1,0) + IF(H2="+",1,0)'
+    # score2 = f'=IF(D3="+",1,0)+IF(E3="+",1,0) + IF(F3="+",1,0) + IF(G3="+",1,0) + IF(H3="+",1,0)'
+    data = {'TEAMS':teams}
+    for i in range(0, len(match['players'][0]['cells'])):
+        data[f"PEN{i + 1}"] = [match['players'][0]['cells'][i].value] if len(
+            match['players'][1]['cells']) < i + 1 else [
+            match['players'][0]['cells'][i].value, match['players'][1]['cells'][i].value]
+    df = pd.DataFrame.from_dict(data, orient='index')
+    values = df.transpose().values.tolist()
 
+    xlapp = win32com.client.DispatchEx("Excel.Application",pythoncom.CoInitialize())
+    wb = xlapp.Workbooks.Open(game.file_path)
+    sheet = wb.Sheets('STATS')
+
+    try:
+        for idx,line in enumerate(values):
+            team,*pens = line
+            # sheet.Range(f"A{idx+2}").Value = player_name
+            sheet.Range(f"B{idx+2}").Value = team
+            for pen_number,pen in enumerate(pens):
+                column_liter = ['D','E','F','G','H']
+                sheet.Range(f"{column_liter[pen_number]}{idx+2}").Value = pen
+        wb.RefreshAll()
+        xlapp.CalculateUntilAsyncQueriesDone()
+        wb.Save()
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        messagebox.showerror('Произошла ошибка при записи файла',
+                             'Не удалось записать в файл результаты удара. Проверьте, что не блокируете файл другими программами')
+        print(f"An error occurred: {e}")
+
+    finally:
+        # Ensure Excel application is closed
+        if 'wb' in locals() and wb:
+            wb.Close(SaveChanges=False) # Don't save if an error occurred
+        if 'xlapp' in locals() and xlapp:
+            xlapp.Quit()
+
+# Проверка корректную ли таблицу мы выбрали по заголовкам
 def check_table_structure(file_path):
     correct_structure = np.array(['TEAM', 'SCORE', 'PEN1', 'PEN2', 'PEN3', 'PEN4', 'PEN5'])
     try:
@@ -208,7 +257,7 @@ def check_table_structure(file_path):
         logger.exception('FileNotFoundError')
     return False
 
-
+# Проверка выбранного файла на доступ
 @eel.expose
 def check_file_permission():
     try:
@@ -222,7 +271,7 @@ def check_file_permission():
         logger.exception(f"Неизвестная ошибка при проверке файла на доступные права")
         return False
 
-
+# Показ диалогового окна для выбора файла (на фронте сделать такое нельзя, т.к. там не хранится полный путь файла)
 @eel.expose
 def ask_file():
     root = Tk()
@@ -242,7 +291,7 @@ def ask_file():
             logger.error(f"Не удалось загрузить файл: {file_path}. Он не найден, либо недостаточно прав.")
     return None
 
-
+# Отдает на фронт список всех окон у пользователя на выбор
 @eel.expose
 def get_windows():
     """Возвращает список видимых окон (название + HWND)."""
@@ -258,7 +307,7 @@ def get_windows():
     win32gui.EnumWindows(callback, None)
     return windows
 
-
+# Отдает на фронт список всех мониторов на выбор
 @eel.expose
 def get_monitors():
     monitors = []

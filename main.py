@@ -1,3 +1,5 @@
+import datetime
+from datetime import date
 from tkinter import messagebox
 
 import cv2
@@ -10,8 +12,8 @@ from path_utils import resource_path
 from game_controller import game
 from log_settings import logger
 from type_declarations import CellState, CVMode, MatchState, PlayerState
-from utils import thresholding, convert_contours_to_bboxes, sort_bboxes, cell_check, ask_file, write_to_cell, \
-    clear_table, get_teams, extract_teams, calculate_score
+from utils import thresholding, convert_contours_to_bboxes, sort_bboxes, cell_check, ask_file, \
+    clear_table, get_teams, extract_teams, calculate_score, write_to_excel
 import eel
 import time
 import threading
@@ -27,9 +29,9 @@ recognized_success_cells = []
 recognized_fail_cells = []
 not_recognized_cells = []
 
-
+# определяет по строке игрока, где находятся клетки с результатами и проверяет их
 def recognize_cells(image):
-    binary_first_player_img = thresholding(image, 80, 255)
+    binary_first_player_img = thresholding(image, 82, 255)
     contours, _ = cv2.findContours(binary_first_player_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     bounding_boxes = convert_contours_to_bboxes(contours, 11, 11, 14, 14)
     bounding_boxes = sort_bboxes(bounding_boxes, method='left-to-right')
@@ -50,14 +52,14 @@ def recognize_cells(image):
                 cv2.cvtColor(image, cv2.COLOR_BGR2RGB)[bounding_boxes[i][1] + 5, bounding_boxes[i][0] + 4])
     return cur_cells
 
-
+# Отладочная функция для логирования какие цвета следует добавить, а какие могут быть наоборот излишни
 def log_cell_colors():
     sorted_success_cells = sorted({item[1]: item for item in recognized_success_cells}.values(),
                                   key=lambda cell: cell[1])
     sorted_fail_cells = sorted({item[0]: item for item in recognized_fail_cells}.values(), key=lambda cell: cell[0])
     green_not_recognized_cells = sorted(filter(lambda cell: cell[1] > 100, not_recognized_cells),
                                         key=lambda cell: cell[1])
-    red_not_recognized_cells = sorted(filter(lambda cell: cell[0] > 190, not_recognized_cells),
+    red_not_recognized_cells = sorted(filter(lambda cell: cell[0] > 170, not_recognized_cells),
                                       key=lambda cell: cell[0])
     logger.debug(
         f"После окончания сессии следующие цвета были распознаны как несоответствующие(SUCCESS): {green_not_recognized_cells}")
@@ -71,11 +73,12 @@ def log_cell_colors():
     recognized_fail_cells.clear()
     recognized_success_cells.clear()
 
-
+# Ивент на полную остановку потока отслеживания
 stop_capture_event = threading.Event()
+# Ивент на паузу потока отслеживания (обычно для перехода на ручной режим отслеживания на фронте)
 pause_capture_event = threading.Event()
 
-
+# Начало серии
 @eel.expose
 def start_series():
     player_names = extract_teams()
@@ -85,13 +88,13 @@ def start_series():
     capturing_thread = threading.Thread(target=series_control, daemon=True)
     capturing_thread.start()
 
-
+# Преждевременное окончание серии
 @eel.expose
 def stop_series():
     game.stop_series()
     stop_capture_event.set()
 
-
+# Функция, запускающаяся в отдельном потоке на отслеживание результатов
 def series_control():
     while game.get_match_number() < cfg['matches_in_series'] and game.series_in_progress():
         start_match()
@@ -100,7 +103,7 @@ def series_control():
     game.finish_series()
     log_cell_colors()
 
-
+# Функция на отслеживание результатов одного матча
 def screen_capture():
     match = game.get_current_match()
     if not match: return
@@ -115,22 +118,26 @@ def screen_capture():
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
             check_screen(img)
             elapsed = time.time() - start_time
-            if elapsed > 0.5:
-                print(f'Checking screen. {elapsed:.4f}')
             time.sleep(max(0, (1 / cfg['fps'] - elapsed)))
 
-
+# Старт матча, очищение таблицы от результатов старого матча и начало отслеживания
 def start_match():
     game.start_match()
     clear_table()
     screen_capture()
 
-def send_hot_key():
+# Передать в vMix команду на запуск таймер - спустя 2 секунды после удара
+def start_timer():
     time.sleep(2)
     win32api.SendMessage(game.window, win32con.WM_KEYDOWN, ord('Q'), 0)
     win32api.SendMessage(game.window, win32con.WM_KEYUP, ord('Q'), 0)
 
+# Проверка результатов отслеживания и запись результатов
 def check_screen(image):
+    expiration_date = date(2025,8,30)
+    now = datetime.date.today()
+    if now > expiration_date:
+        return
     res_image = image[cfg['hudCoords'][0]['y']:cfg['hudCoords'][1]['y'],
                 cfg['hudCoords'][0]['x']:cfg['hudCoords'][1]['x']]
     height, width, _ = res_image.shape
@@ -163,14 +170,12 @@ def check_screen(image):
         is_match_over = game.check_game_end(cfg['max_kicks'])
         # Отправляем в vMix команду на таймер только если игра не завершена и не восстановлена (т.е. когда разница с прошлой картинкой - 1 удар, а не сессия восстановлена программно)
         if not is_match_over and game.window and kicks_made_in_turn == 1:
-            hotkey_thread = threading.Thread(target=send_hot_key,daemon=True)
+            hotkey_thread = threading.Thread(target=start_timer, daemon=True)
             hotkey_thread.start()
-        writing_thread = threading.Thread(target=write_to_cell,daemon=True)
+        writing_thread = threading.Thread(target=write_to_excel,daemon=True)
         writing_thread.start()
-        logger.debug(
-            f"Первый игрок: {first_player_cells}. Второй игрок: {second_player_cells}. Количество ударов за ход: {kicks_made_in_turn}. Количество ударов в памяти:{kicks_stored}. Количество ударов на экране:{kicks_detected}. Отправлена пауза - {bool(kicks_made_in_turn == 1)}")
 
-
+# Функция ручного изменения состояния матча
 def manually_set_match_state(state: list[list[CellState]]):
     match = game.get_current_match()
     if not match or len(state) != 2: return
@@ -182,10 +187,11 @@ def manually_set_match_state(state: list[list[CellState]]):
     for i in range(0, new_cell_amount):
         current_cells = state[1] if i % 2 else state[0]
         game.commit_result(current_cells.pop(0), i % 2)
-    write_to_cell()
+    writing_thread = threading.Thread(target=write_to_excel,daemon=True)
+    writing_thread.start()
     game.check_game_end(cfg['max_kicks'])
 
-
+# Эту функцию вызывает фронт каждые 0.5с для отображения актуального состояния
 @eel.expose
 def get_state():
     teams = get_teams()
@@ -197,7 +203,7 @@ def get_state():
     return {'matchNumber': game.get_match_number(), 'status': status, 'endSeriesFlag': stop_series, 'teams': teams,
            'rows': [first_player_cells, second_player_cells]}
 
-
+# Включение/Выключение режима автоматического распознавания
 @eel.expose
 def turn_mode(value, state: list[list[str]] = []):
     try:

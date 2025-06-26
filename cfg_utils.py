@@ -23,7 +23,6 @@ default_cfg={
     "screen": 1
 }
 
-
 def load_config():
     config_path = get_executable_path('config.json')
     if os.path.exists(config_path):
