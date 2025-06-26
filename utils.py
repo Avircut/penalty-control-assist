@@ -1,4 +1,6 @@
 import mss
+import pythoncom
+import win32com.client
 
 from cfg_utils import save_config, cfg
 from log_settings import logger
@@ -90,12 +92,21 @@ def cell_check(color: tuple[int, int, int]):
     """
     # 150 100 100
     # 100 120 100
-    if color[2] > 210 and color[1] <= 85 and color[0] < 75:
+    if color[2] > 210 and color[1] <= 90 and color[0] < 80:
         return CellState.FAIL
-    elif color[2] <= 36 and color[1] > 120 and color[0] < 75:
+    elif color[2] <= 40 and color[1] > 120 and color[0] < 80:
         return CellState.SUCCESS
     return None
 
+# Функция нужна, чтобы обновить файл и подготовить его для обработки vMix
+def refresh_table():
+    xlapp = win32com.client.DispatchEx("Excel.Application",pythoncom.CoInitialize())
+    wb = xlapp.Workbooks.Open(game.file_path)
+    wb.RefreshAll()
+    xlapp.CalculateUntilAsyncQueriesDone()
+    wb.Save()
+    # time.sleep(1)
+    xlapp.Quit()
 
 def clear_table():
     teams = get_teams()
@@ -111,6 +122,7 @@ def clear_table():
         sheet_name = 'STATS'
         team_df.to_excel(writer, sheet_name=sheet_name, startrow=0, index=False, startcol=1)
         df.to_excel(writer, sheet_name=sheet_name, startrow=0, index=False, startcol=3)
+    refresh_table()
 
 
 def calculate_score(cells: list[CellState]):
@@ -170,6 +182,7 @@ def write_to_cell():
                 sheet_name = 'STATS'
                 team_df.to_excel(writer, sheet_name=sheet_name, startrow=0, index=False, startcol=1)
                 df.to_excel(writer, sheet_name=sheet_name, startrow=0, index=False, startcol=3)
+            refresh_table()
         except Exception as e:
             logger.error(traceback.format_exc())
             messagebox.showerror('Произошла ошибка при записи файла',

@@ -115,6 +115,8 @@ def screen_capture():
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
             check_screen(img)
             elapsed = time.time() - start_time
+            if elapsed > 0.5:
+                print(f'Checking screen. {elapsed:.4f}')
             time.sleep(max(0, (1 / cfg['fps'] - elapsed)))
 
 
@@ -123,6 +125,10 @@ def start_match():
     clear_table()
     screen_capture()
 
+def send_hot_key():
+    time.sleep(2)
+    win32api.SendMessage(game.window, win32con.WM_KEYDOWN, ord('Q'), 0)
+    win32api.SendMessage(game.window, win32con.WM_KEYUP, ord('Q'), 0)
 
 def check_screen(image):
     res_image = image[cfg['hudCoords'][0]['y']:cfg['hudCoords'][1]['y'],
@@ -154,15 +160,15 @@ def check_screen(image):
         game.set_status('Конец истории матча')
 
     if kicks_made_in_turn > 0:
-        write_to_cell()
-        logger.debug(
-            f"Первый игрок: {first_player_cells}. Второй игрок: {second_player_cells}. Количество ударов за ход: {kicks_made_in_turn}. Количество ударов в памяти:{kicks_stored}. Количество ударов на экране:{kicks_detected}. Отправлена пауза - {bool(kicks_made_in_turn == 1)}")
         is_match_over = game.check_game_end(cfg['max_kicks'])
         # Отправляем в vMix команду на таймер только если игра не завершена и не восстановлена (т.е. когда разница с прошлой картинкой - 1 удар, а не сессия восстановлена программно)
         if not is_match_over and game.window and kicks_made_in_turn == 1:
-            time.sleep(2)
-            win32api.SendMessage(game.window, win32con.WM_KEYDOWN, ord('Q'), 0)
-            win32api.SendMessage(game.window, win32con.WM_KEYUP, ord('Q'), 0)
+            hotkey_thread = threading.Thread(target=send_hot_key,daemon=True)
+            hotkey_thread.start()
+        writing_thread = threading.Thread(target=write_to_cell,daemon=True)
+        writing_thread.start()
+        logger.debug(
+            f"Первый игрок: {first_player_cells}. Второй игрок: {second_player_cells}. Количество ударов за ход: {kicks_made_in_turn}. Количество ударов в памяти:{kicks_stored}. Количество ударов на экране:{kicks_detected}. Отправлена пауза - {bool(kicks_made_in_turn == 1)}")
 
 
 def manually_set_match_state(state: list[list[CellState]]):
