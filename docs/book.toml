@@ -8,8 +8,6 @@ src = "src"
 [output.html]
 default-theme = "light"
 preferred-dark-theme = "navy"
-git-repository-url = "https://github.com/yourusername/PenaltyControlAssist"
-edit-url-template = "https://github.com/yourusername/PenaltyControlAssist/edit/main/docs/{path}"
 
 [output.html.search]
 enable = true
