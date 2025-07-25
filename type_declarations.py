@@ -6,6 +6,15 @@ Point: TypeAlias = {
     'y': float
 }
 
+Configuration: TypeAlias = {
+    'hud_coords': tuple[Point, Point],
+    'max_kicks': int,
+    'fps': int,
+    'matches_in_series': int,
+    'file_path': str,
+    'screen': str
+}
+
 
 class CellState(Enum):
     SUCCESS = '+'
@@ -31,13 +40,7 @@ SeriesState: TypeAlias = {
     'matches': list[MatchState]
 }
 
-Configuration: TypeAlias = {
-    'hud_coords': tuple[Point, Point],
-    'max_kicks': int,
-    'fps': int,
-    'matches_in_series': int,
-    'file_path': str
-}
+
 
 class CVMode(Enum):
     ON = 'on'

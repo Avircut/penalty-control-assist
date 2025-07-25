@@ -11,7 +11,7 @@
           rel="stylesheet">
     <script type="text/javascript">
         CELL_MAPPING = new Map([['+', '-'], ['-', '0'], ['0', '+']])
-        const VERSION = '0.2.0'
+        const VERSION = '1.0.0'
         window.onload = async function () {
             document.querySelector('.version').innerHTML = VERSION;
             let isLoading = false;
@@ -25,6 +25,7 @@
             const matchesInSeriesInput = document.querySelector('#matches-in-series');
             const matchStartInput = document.querySelector('#start-match');
             btns.forEach((button) => button.disabled = true);
+            const historyBtn = document.querySelector('.history-btn');
             const fileBtn = document.querySelector('#fileBtn');
             const currentState = document.querySelector('.current-state');
             let checkIntervalId;
@@ -195,6 +196,7 @@
 
             const startSeries = async () => {
                 setIsLoading(true);
+                historyBtn.disabled = false;
                 const isFileCorrect = await eel.check_file_permission()();
                 if (isFileCorrect) {
                     eel.start_series();
@@ -293,6 +295,9 @@
             checkBtn?.addEventListener('click', () => {
                 eel.check_cv();
             })
+            historyBtn.addEventListener('click', () => {
+                eel.open_history();
+            })
             setIsLoading(false);
         }
     </script>
@@ -390,6 +395,7 @@
     <div class="btn-group">
         <button class="start-btn btn">Начать серию матчей</button>
         <button class="stop-btn btn">Окончить серию матчей</button>
+        <button class="history-btn btn">История матчей</button>
     </div>
     <div class="version"></div>
 </div>

@@ -20,7 +20,7 @@ default_cfg={
     "max_kicks": 5,
     "matches_in_series": 6,
     "fps": 30,
-    "screen": 1
+    "screen": "1"
 }
 
 def load_config():

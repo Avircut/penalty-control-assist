@@ -21,6 +21,7 @@ import pandas as pd
 from type_declarations import CellState
 
 
+# Функция для перевода изображение в бинарный вид (черно-белый)
 def thresholding(img, value_1, value_2):
     """
     Parameters:
@@ -34,7 +35,7 @@ def thresholding(img, value_1, value_2):
     _, binary_img = cv2.threshold(img, value_1, value_2, cv2.THRESH_BINARY)
     return binary_img
 
-
+# Функция конвертирует дефолтные контуры cv2 в более удобный формат, а также удаляет внутренние границы
 def convert_contours_to_bboxes(contours, min_height, min_width, max_height, max_width):
     """
     convert contours to bboxes, also remove all small bounding boxes
@@ -57,7 +58,7 @@ def convert_contours_to_bboxes(contours, min_height, min_width, max_height, max_
             cards_bboxes.append(contour_coordinates)
     return cards_bboxes
 
-
+# Сортирует распознанные границы в указанном порядке
 def sort_bboxes(bounding_boxes, method: str):
     """
     Parameters:
@@ -125,7 +126,7 @@ def calculate_score(cells: list[CellState]):
         if cell == CellState.SUCCESS: cur_score += 1
     return cur_score
 
-# Получение игроков и их команд из таблицы
+# Получение игроков и их команд из таблицы. Данные берутся из столбца HOMEAWAY (1 столбец) 2 и 3 строки
 def extract_teams():
     file = pd.read_excel(game.file_path, usecols='A', skiprows=1, nrows=2, header=None)
     file_content = file.to_numpy()
@@ -144,7 +145,7 @@ def show_message(text):
 def get_teams():
     return game.get_current_teams()
 
-# Запуск проверки выбранного экрана (отображается прямоугольник в области, где программа будет искать худ для отслеживания
+# Запуск проверки выбранного экрана (отображается зеленая рамка в области, где программа будет искать худ для отслеживания
 @eel.expose
 def check_cv():
     with mss.mss() as sct:
@@ -169,6 +170,7 @@ def refresh_table():
     xlapp.Quit()
 
 # Рудимент функция - раньше использовался pandas для сохранения результатов в excel. Из-за того, что без рефреша формул vMix не видел корректно данные пришлось уйти от этого варианта в сторону решения на чистом pywin32.
+# Deprecated
 def write_to_cell():
     teams = get_teams()
     match = game.get_current_match()
@@ -199,6 +201,7 @@ def write_to_excel():
     if not match: return
     player_names = game.get_player_names()
     teams = game.get_current_teams()
+    # Были проблемы с сохранением/перерасчетом формул, поэтому не меняем их, просто оставляем дефолтные формулы в этих ячейках
     # score = f'=IF(D2="+",1,0)+IF(E2="+",1,0) + IF(F2="+",1,0) + IF(G2="+",1,0) + IF(H2="+",1,0)'
     # score2 = f'=IF(D3="+",1,0)+IF(E3="+",1,0) + IF(F3="+",1,0) + IF(G3="+",1,0) + IF(H3="+",1,0)'
     data = {'TEAMS':teams}
@@ -257,7 +260,7 @@ def check_table_structure(file_path):
         logger.exception('FileNotFoundError')
     return False
 
-# Проверка выбранного файла на доступ
+# Проверка прав в выбранном файле
 @eel.expose
 def check_file_permission():
     try:

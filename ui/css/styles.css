@@ -139,6 +139,7 @@
     gap: 8px;
 }
 
+
 .match-wrapper{
     display: flex;
     gap: 6px;
@@ -172,10 +173,38 @@ select{
 }
 .btn:disabled{
     pointer-events: none;
+    opacity: .5;
 }
 .btn:hover{
     background: #ddd;
     border: 1px solid #444;
+}
+
+.start-btn{
+    color:white;
+    background:#10bd00;
+    border: 1px solid #10bd00;
+}
+
+.start-btn:hover{
+    color:#212121;
+    background: white;
+    border: 1px solid #10bd00;
+}
+
+.stop-btn{
+    color:white;
+    background: #df0909;
+    border: 1px solid #df0909;
+}
+.stop-btn:hover{
+    color:#212121;
+    background:white;
+    border: 1px solid #df0909;
+}
+
+.history-btn{
+    grid-column: 1/-1;
 }
 
 .loader{

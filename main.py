@@ -94,7 +94,8 @@ def stop_series():
     game.stop_series()
     stop_capture_event.set()
 
-# Функция, запускающаяся в отдельном потоке на отслеживание результатов
+# Функция, запускающаяся в отдельном потоке на отслеживание результатов.
+# Перед каждым новым матчем идет ожидание 10 секунд, чтобы информация об окончании матча не перетерлась сразу информацией о начале нового
 def series_control():
     while game.get_match_number() < cfg['matches_in_series'] and game.series_in_progress():
         start_match()
@@ -224,8 +225,7 @@ def turn_mode(value, state: list[list[str]] = []):
 
 def main():
     eel.init(resource_path('ui'))
-    eel.start('main.html', mode='edge', size=(540, 450), position=(100, 100))
-
+    eel.start('main.html', mode='edge', size=(540, 480), position=(100, 100))
 
 if __name__ == "__main__":
     main()

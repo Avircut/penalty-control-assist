@@ -1,5 +1,3 @@
-import time
-
 import win32gui
 
 from log_settings import logger
